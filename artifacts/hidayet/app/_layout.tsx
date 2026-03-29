@@ -9,11 +9,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect } from 'react';
+import { Modal } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { AppProvider } from '@/context/AppContext';
+import Onboarding from '@/components/Onboarding';
+import { AppProvider, useApp } from '@/context/AppContext';
 import { Colors } from '@/constants/colors';
 
 SplashScreen.preventAutoHideAsync();
@@ -21,15 +23,26 @@ SplashScreen.preventAutoHideAsync();
 const queryClient = new QueryClient();
 
 function RootLayoutNav() {
+  const { onboardingDone } = useApp();
+
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: Colors.background },
-      }}
-    >
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-    </Stack>
+    <>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: Colors.background },
+        }}
+      >
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      </Stack>
+      <Modal
+        visible={!onboardingDone}
+        animationType="fade"
+        statusBarTranslucent
+      >
+        <Onboarding />
+      </Modal>
+    </>
   );
 }
 

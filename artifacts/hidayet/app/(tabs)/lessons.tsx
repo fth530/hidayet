@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import React, { useState } from 'react';
 import {
@@ -24,7 +25,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 export default function LessonsScreen() {
-  const { progress, preferences, completeDay } = useApp();
+  const { progress, preferences, completeDay, bookmarks, toggleBookmark } = useApp();
   const insets = useSafeAreaInsets();
   const [selectedLesson, setSelectedLesson] = useState<(typeof lessons)[0] | null>(null);
   const lang = preferences.language;
@@ -57,6 +58,7 @@ export default function LessonsScreen() {
           const status = getLessonStatus(item.day);
           const catColor = CATEGORY_COLORS[item.category];
           const isLocked = status === 'locked';
+          const isBookmarked = bookmarks.includes(item.day);
 
           return (
             <Pressable
@@ -83,10 +85,27 @@ export default function LessonsScreen() {
                 </Text>
                 <Text style={styles.lessonDuration}>{item.duration}</Text>
               </View>
-              <View style={styles.statusIcon}>
-                {status === 'completed' && <Text style={styles.completedIcon}>✅</Text>}
-                {status === 'current' && <Text style={styles.currentIcon}>▶</Text>}
-                {status === 'locked' && <Text style={styles.lockedIcon}>🔒</Text>}
+              <View style={styles.rightActions}>
+                <Pressable
+                  style={styles.bookmarkBtn}
+                  onPress={async (e) => {
+                    e.stopPropagation?.();
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    await toggleBookmark(item.day);
+                  }}
+                  hitSlop={8}
+                >
+                  <Ionicons
+                    name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
+                    size={18}
+                    color={isBookmarked ? Colors.gold : Colors.textMuted}
+                  />
+                </Pressable>
+                <View style={styles.statusIcon}>
+                  {status === 'completed' && <Text style={styles.completedIcon}>✅</Text>}
+                  {status === 'current' && <Text style={styles.currentIcon}>▶</Text>}
+                  {status === 'locked' && <Text style={styles.lockedIcon}>🔒</Text>}
+                </View>
               </View>
             </Pressable>
           );
@@ -110,6 +129,19 @@ export default function LessonsScreen() {
                 <Text style={styles.modalTitle}>
                   {lang === 'tr' ? selectedLesson.titleTr : selectedLesson.titleEn}
                 </Text>
+                <Pressable
+                  style={styles.bookmarkBtnModal}
+                  onPress={async () => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    await toggleBookmark(selectedLesson.day);
+                  }}
+                >
+                  <Ionicons
+                    name={bookmarks.includes(selectedLesson.day) ? 'bookmark' : 'bookmark-outline'}
+                    size={20}
+                    color={bookmarks.includes(selectedLesson.day) ? Colors.gold : Colors.textMuted}
+                  />
+                </Pressable>
                 <Pressable style={styles.closeBtn} onPress={() => setSelectedLesson(null)}>
                   <Text style={styles.closeText}>✕</Text>
                 </Pressable>
@@ -183,7 +215,9 @@ const styles = StyleSheet.create({
   lessonInfo: { flex: 1 },
   lessonTitle: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary, fontFamily: 'Inter_600SemiBold', marginBottom: 3 },
   lessonDuration: { fontSize: 12, color: Colors.textSecondary, fontFamily: 'Inter_400Regular' },
-  statusIcon: { marginLeft: 8 },
+  rightActions: { flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: 8 },
+  bookmarkBtn: { padding: 4 },
+  statusIcon: {},
   completedIcon: { fontSize: 18 },
   currentIcon: { fontSize: 16, color: Colors.green },
   lockedIcon: { fontSize: 16 },
@@ -213,6 +247,14 @@ const styles = StyleSheet.create({
   },
   modalDayNum: { fontSize: 14, fontWeight: '700', color: Colors.background, fontFamily: 'Inter_700Bold' },
   modalTitle: { flex: 1, fontSize: 16, fontWeight: '600', color: Colors.textPrimary, fontFamily: 'Inter_600SemiBold', lineHeight: 22 },
+  bookmarkBtnModal: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   closeBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center' },
   closeText: { fontSize: 14, color: Colors.textSecondary },
   modalScroll: { paddingHorizontal: 20, paddingTop: 16, maxHeight: 500 },

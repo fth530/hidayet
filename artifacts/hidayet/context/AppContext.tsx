@@ -26,11 +26,17 @@ interface AppContextType {
   progress: Progress;
   preferences: Preferences;
   dhikrCount: DhikrCount;
+  bookmarks: number[];
+  selectedCity: string;
+  onboardingDone: boolean;
   setLanguage: (lang: 'tr' | 'en') => void;
-  completeDay: (day: number) => void;
-  resetProgress: () => void;
-  incrementDhikr: (type: 'subhanallah' | 'alhamdulillah' | 'allahuakbar') => void;
-  resetDhikr: (type: 'subhanallah' | 'alhamdulillah' | 'allahuakbar') => void;
+  completeDay: (day: number) => Promise<void>;
+  resetProgress: () => Promise<void>;
+  incrementDhikr: (type: 'subhanallah' | 'alhamdulillah' | 'allahuakbar') => Promise<void>;
+  resetDhikr: (type: 'subhanallah' | 'alhamdulillah' | 'allahuakbar') => Promise<void>;
+  toggleBookmark: (day: number) => Promise<void>;
+  setCity: (city: string) => Promise<void>;
+  completeOnboarding: () => Promise<void>;
 }
 
 const defaultProgress: Progress = {
@@ -59,17 +65,26 @@ const AppContext = createContext<AppContextType>({
   progress: defaultProgress,
   preferences: defaultPreferences,
   dhikrCount: defaultDhikr,
+  bookmarks: [],
+  selectedCity: 'Istanbul',
+  onboardingDone: false,
   setLanguage: () => {},
-  completeDay: () => {},
-  resetProgress: () => {},
-  incrementDhikr: () => {},
-  resetDhikr: () => {},
+  completeDay: async () => {},
+  resetProgress: async () => {},
+  incrementDhikr: async () => {},
+  resetDhikr: async () => {},
+  toggleBookmark: async () => {},
+  setCity: async () => {},
+  completeOnboarding: async () => {},
 });
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [progress, setProgress] = useState<Progress>(defaultProgress);
   const [preferences, setPreferences] = useState<Preferences>(defaultPreferences);
   const [dhikrCount, setDhikrCount] = useState<DhikrCount>(defaultDhikr);
+  const [bookmarks, setBookmarks] = useState<number[]>([]);
+  const [selectedCity, setSelectedCityState] = useState<string>('Istanbul');
+  const [onboardingDone, setOnboardingDone] = useState<boolean>(false);
 
   useEffect(() => {
     loadData();
@@ -77,17 +92,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadData = async () => {
     try {
-      const [progressData, prefsData, dhikrData] = await Promise.all([
-        AsyncStorage.getItem('progress'),
-        AsyncStorage.getItem('preferences'),
-        AsyncStorage.getItem('dhikr'),
-      ]);
+      const [progressData, prefsData, dhikrData, bookmarksData, cityData, onboardingData] =
+        await Promise.all([
+          AsyncStorage.getItem('progress'),
+          AsyncStorage.getItem('preferences'),
+          AsyncStorage.getItem('dhikr'),
+          AsyncStorage.getItem('bookmarks'),
+          AsyncStorage.getItem('selectedCity'),
+          AsyncStorage.getItem('onboarding_done'),
+        ]);
 
       if (progressData) {
         const parsed = JSON.parse(progressData) as Progress;
         const todayStr = new Date().toISOString().split('T')[0];
         const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-
         let streak = parsed.streak;
         if (parsed.lastStudiedDate !== todayStr && parsed.lastStudiedDate !== yesterday) {
           streak = 0;
@@ -108,6 +126,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setDhikrCount(parsed);
         }
       }
+
+      if (bookmarksData) setBookmarks(JSON.parse(bookmarksData));
+      if (cityData) setSelectedCityState(cityData);
+      if (onboardingData === 'true') setOnboardingDone(true);
     } catch (e) {}
   };
 
@@ -123,13 +145,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ? progress.completedDays
       : [...progress.completedDays, day].sort((a, b) => a - b);
 
-    const newStreak = progress.lastStudiedDate === todayStr
-      ? progress.streak
-      : progress.lastStudiedDate === new Date(Date.now() - 86400000).toISOString().split('T')[0]
-      ? progress.streak + 1
-      : 1;
+    const newStreak =
+      progress.lastStudiedDate === todayStr
+        ? progress.streak
+        : progress.lastStudiedDate ===
+          new Date(Date.now() - 86400000).toISOString().split('T')[0]
+        ? progress.streak + 1
+        : 1;
 
-    const newCurrentDay = Math.max(...newCompleted) + 1 <= 30 ? Math.max(...newCompleted) + 1 : 30;
+    const newCurrentDay =
+      Math.max(...newCompleted) + 1 <= 30 ? Math.max(...newCompleted) + 1 : 30;
     const level = getLevel(newCompleted.length);
 
     const newProgress: Progress = {
@@ -159,9 +184,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const incrementDhikr = async (type: 'subhanallah' | 'alhamdulillah' | 'allahuakbar') => {
     const todayStr = new Date().toISOString().split('T')[0];
-    const base = dhikrCount.date !== todayStr
-      ? { date: todayStr, subhanallah: 0, alhamdulillah: 0, allahuakbar: 0 }
-      : dhikrCount;
+    const base =
+      dhikrCount.date !== todayStr
+        ? { date: todayStr, subhanallah: 0, alhamdulillah: 0, allahuakbar: 0 }
+        : dhikrCount;
     const newDhikr = { ...base, [type]: base[type] + 1 };
     setDhikrCount(newDhikr);
     await AsyncStorage.setItem('dhikr', JSON.stringify(newDhikr));
@@ -173,9 +199,42 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem('dhikr', JSON.stringify(newDhikr));
   };
 
+  const toggleBookmark = async (day: number) => {
+    const newBookmarks = bookmarks.includes(day)
+      ? bookmarks.filter((d) => d !== day)
+      : [...bookmarks, day].sort((a, b) => a - b);
+    setBookmarks(newBookmarks);
+    await AsyncStorage.setItem('bookmarks', JSON.stringify(newBookmarks));
+  };
+
+  const setCity = async (city: string) => {
+    setSelectedCityState(city);
+    await AsyncStorage.setItem('selectedCity', city);
+  };
+
+  const completeOnboarding = async () => {
+    setOnboardingDone(true);
+    await AsyncStorage.setItem('onboarding_done', 'true');
+  };
+
   return (
     <AppContext.Provider
-      value={{ progress, preferences, dhikrCount, setLanguage, completeDay, resetProgress, incrementDhikr, resetDhikr }}
+      value={{
+        progress,
+        preferences,
+        dhikrCount,
+        bookmarks,
+        selectedCity,
+        onboardingDone,
+        setLanguage,
+        completeDay,
+        resetProgress,
+        incrementDhikr,
+        resetDhikr,
+        toggleBookmark,
+        setCity,
+        completeOnboarding,
+      }}
     >
       {children}
     </AppContext.Provider>

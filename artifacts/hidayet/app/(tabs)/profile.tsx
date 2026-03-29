@@ -6,6 +6,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -14,9 +15,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 import { useApp } from '@/context/AppContext';
 import { faqs } from '@/data/faqs';
+import { lessons } from '@/data/lessons';
+
+const CATEGORY_COLORS: Record<string, string> = {
+  belief: Colors.gold,
+  prayer: Colors.green,
+  quran: Colors.blue,
+  daily: Colors.orange,
+  community: Colors.purple,
+};
 
 export default function ProfileScreen() {
-  const { progress, preferences, setLanguage, resetProgress } = useApp();
+  const { progress, preferences, setLanguage, resetProgress, bookmarks, toggleBookmark } = useApp();
   const insets = useSafeAreaInsets();
   const lang = preferences.language;
   const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
@@ -24,6 +34,8 @@ export default function ProfileScreen() {
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
   const levelEmoji = progress.level === 'Temel' ? '🌙' : progress.level === 'Orta' ? '⭐' : '☀️';
+
+  const bookmarkedLessons = lessons.filter((l) => bookmarks.includes(l.day));
 
   const handleReset = () => {
     if (Platform.OS === 'web') {
@@ -55,6 +67,18 @@ export default function ProfileScreen() {
         ]
       );
     }
+  };
+
+  const handleShareProgress = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const message =
+      `🕌 Hidayet ile İslam'ı öğreniyorum!\n` +
+      `📚 ${progress.completedDays.length}/30 gün tamamlandı\n` +
+      `🔥 ${progress.streak} gün streak\n` +
+      `#Hidayet`;
+    try {
+      await Share.share({ message });
+    } catch {}
   };
 
   return (
@@ -94,6 +118,17 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        {/* Share Progress */}
+        <Pressable
+          style={({ pressed }) => [styles.shareBtn, pressed && { opacity: 0.8 }]}
+          onPress={handleShareProgress}
+        >
+          <Ionicons name="share-social-outline" size={18} color={Colors.background} />
+          <Text style={styles.shareBtnText}>
+            {lang === 'tr' ? 'İlerlemeyi Paylaş' : 'Share Progress'}
+          </Text>
+        </Pressable>
+
         {/* Language Toggle */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{lang === 'tr' ? 'Dil / Language' : 'Language / Dil'}</Text>
@@ -113,6 +148,49 @@ export default function ProfileScreen() {
               <Text style={[styles.langText, lang === 'en' && { color: Colors.background }]}>English</Text>
             </Pressable>
           </View>
+        </View>
+
+        {/* Bookmarks Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionTitleRow}>
+            <Text style={styles.sectionTitle}>
+              {lang === 'tr' ? 'Yer İşaretlerim' : 'Bookmarks'}
+            </Text>
+            <Ionicons name="bookmark" size={14} color={Colors.gold} />
+          </View>
+          {bookmarkedLessons.length === 0 ? (
+            <View style={styles.emptyBookmarks}>
+              <Ionicons name="bookmark-outline" size={28} color={Colors.textMuted} />
+              <Text style={styles.emptyBookmarksText}>
+                {lang === 'tr'
+                  ? 'Yer imi yok. Derslerde 🔖 simgesine bas.'
+                  : 'No bookmarks yet. Tap 🔖 on any lesson.'}
+              </Text>
+            </View>
+          ) : (
+            bookmarkedLessons.map((lesson) => (
+              <View key={lesson.day} style={styles.bookmarkCard}>
+                <View style={[styles.bookmarkDayCircle, { backgroundColor: CATEGORY_COLORS[lesson.category] }]}>
+                  <Text style={styles.bookmarkDayNum}>{lesson.day}</Text>
+                </View>
+                <View style={styles.bookmarkInfo}>
+                  <Text style={styles.bookmarkTitle}>
+                    {lang === 'tr' ? lesson.titleTr : lesson.titleEn}
+                  </Text>
+                  <Text style={styles.bookmarkDuration}>{lesson.duration}</Text>
+                </View>
+                <Pressable
+                  style={styles.removeBookmarkBtn}
+                  onPress={async () => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    await toggleBookmark(lesson.day);
+                  }}
+                >
+                  <Ionicons name="bookmark" size={18} color={Colors.gold} />
+                </Pressable>
+              </View>
+            ))
+          )}
         </View>
 
         {/* FAQ Section */}
@@ -184,7 +262,7 @@ const styles = StyleSheet.create({
   levelInfo: {},
   levelName: { fontSize: 22, fontWeight: '700', color: Colors.gold, fontFamily: 'Inter_700Bold' },
   levelDesc: { fontSize: 13, color: Colors.textSecondary, fontFamily: 'Inter_400Regular' },
-  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 24 },
+  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
   statCard: {
     flex: 1,
     backgroundColor: Colors.card,
@@ -196,8 +274,30 @@ const styles = StyleSheet.create({
   },
   statNum: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary, fontFamily: 'Inter_700Bold', marginBottom: 4 },
   statLabel: { fontSize: 11, color: Colors.textSecondary, fontFamily: 'Inter_400Regular', textAlign: 'center' },
+  shareBtn: {
+    backgroundColor: Colors.gold,
+    borderRadius: 16,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 28,
+    shadowColor: Colors.gold,
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+  shareBtnText: { fontSize: 15, fontWeight: '600', color: Colors.background, fontFamily: 'Inter_600SemiBold' },
   section: { marginBottom: 28 },
-  sectionTitle: { fontSize: 14, fontWeight: '600', color: Colors.textSecondary, fontFamily: 'Inter_600SemiBold', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 12,
+  },
+  sectionTitle: { fontSize: 14, fontWeight: '600', color: Colors.textSecondary, fontFamily: 'Inter_600SemiBold', textTransform: 'uppercase', letterSpacing: 0.5 },
   langRow: { flexDirection: 'row', gap: 12 },
   langBtn: {
     flex: 1,
@@ -214,6 +314,48 @@ const styles = StyleSheet.create({
   langBtnActive: { backgroundColor: Colors.gold, borderColor: Colors.gold },
   langFlag: { fontSize: 18 },
   langText: { fontSize: 14, fontWeight: '600', color: Colors.textSecondary, fontFamily: 'Inter_600SemiBold' },
+
+  // Bookmarks
+  emptyBookmarks: {
+    backgroundColor: Colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+    padding: 24,
+    alignItems: 'center',
+    gap: 10,
+  },
+  emptyBookmarksText: {
+    fontSize: 13,
+    color: Colors.textMuted,
+    fontFamily: 'Inter_400Regular',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  bookmarkCard: {
+    backgroundColor: Colors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  bookmarkDayCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  bookmarkDayNum: { fontSize: 13, fontWeight: '700', color: Colors.background, fontFamily: 'Inter_700Bold' },
+  bookmarkInfo: { flex: 1 },
+  bookmarkTitle: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary, fontFamily: 'Inter_600SemiBold', marginBottom: 2 },
+  bookmarkDuration: { fontSize: 11, color: Colors.textSecondary, fontFamily: 'Inter_400Regular' },
+  removeBookmarkBtn: { padding: 6 },
+
   faqCard: {
     backgroundColor: Colors.card,
     borderRadius: 14,
