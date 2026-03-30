@@ -48,6 +48,26 @@ function RootLayoutNav() {
   );
 }
 
+function RootLayoutInner({ fontsLoaded, fontError }: { fontsLoaded: boolean; fontError: Error | null }) {
+  const { isReady } = useApp();
+
+  useEffect(() => {
+    if ((fontsLoaded || fontError) && isReady) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded, fontError, isReady]);
+
+  if ((!fontsLoaded && !fontError) || !isReady) return null;
+
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <KeyboardProvider>
+        <RootLayoutNav />
+      </KeyboardProvider>
+    </GestureHandlerRootView>
+  );
+}
+
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
@@ -56,24 +76,12 @@ export default function RootLayout() {
     Inter_700Bold,
   });
 
-  useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded, fontError]);
-
-  if (!fontsLoaded && !fontError) return null;
-
   return (
     <SafeAreaProvider>
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <AppProvider>
-            <GestureHandlerRootView style={{ flex: 1 }}>
-              <KeyboardProvider>
-                <RootLayoutNav />
-              </KeyboardProvider>
-            </GestureHandlerRootView>
+            <RootLayoutInner fontsLoaded={fontsLoaded} fontError={fontError} />
           </AppProvider>
         </QueryClientProvider>
       </ErrorBoundary>

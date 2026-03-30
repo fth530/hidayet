@@ -29,6 +29,7 @@ interface AppContextType {
   bookmarks: number[];
   selectedCity: string;
   onboardingDone: boolean;
+  isReady: boolean;
   setLanguage: (lang: 'tr' | 'en') => void;
   completeDay: (day: number) => Promise<void>;
   resetProgress: () => Promise<void>;
@@ -68,6 +69,7 @@ const AppContext = createContext<AppContextType>({
   bookmarks: [],
   selectedCity: 'Istanbul',
   onboardingDone: false,
+  isReady: false,
   setLanguage: () => {},
   completeDay: async () => {},
   resetProgress: async () => {},
@@ -85,6 +87,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [bookmarks, setBookmarks] = useState<number[]>([]);
   const [selectedCity, setSelectedCityState] = useState<string>('Istanbul');
   const [onboardingDone, setOnboardingDone] = useState<boolean>(false);
+  const [isReady, setIsReady] = useState<boolean>(false);
 
   useEffect(() => {
     loadData();
@@ -92,45 +95,87 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadData = async () => {
     try {
-      const [progressData, prefsData, dhikrData, bookmarksData, cityData, onboardingData] =
-        await Promise.all([
-          AsyncStorage.getItem('progress'),
-          AsyncStorage.getItem('preferences'),
-          AsyncStorage.getItem('dhikr'),
-          AsyncStorage.getItem('bookmarks'),
-          AsyncStorage.getItem('selectedCity'),
-          AsyncStorage.getItem('onboarding_done'),
-        ]);
-
+      const progressData = await AsyncStorage.getItem('progress');
       if (progressData) {
-        const parsed = JSON.parse(progressData) as Progress;
-        const todayStr = new Date().toISOString().split('T')[0];
-        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-        let streak = parsed.streak;
-        if (parsed.lastStudiedDate !== todayStr && parsed.lastStudiedDate !== yesterday) {
-          streak = 0;
+        try {
+          const parsed = JSON.parse(progressData) as Progress;
+          const todayStr = new Date().toISOString().split('T')[0];
+          const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+          let streak = parsed.streak;
+          if (parsed.lastStudiedDate !== todayStr && parsed.lastStudiedDate !== yesterday) {
+            streak = 0;
+          }
+          setProgress({ ...parsed, streak });
+        } catch (e) {
+          console.warn('Failed to parse progress', e);
         }
-        setProgress({ ...parsed, streak });
       }
+    } catch (e) {
+      console.warn('Failed to load progress', e);
+    }
 
-      if (prefsData) setPreferences(JSON.parse(prefsData));
+    try {
+      const prefsData = await AsyncStorage.getItem('preferences');
+      if (prefsData) {
+        try {
+          setPreferences(JSON.parse(prefsData));
+        } catch (e) {
+          console.warn('Failed to parse preferences', e);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load preferences', e);
+    }
 
+    try {
+      const dhikrData = await AsyncStorage.getItem('dhikr');
       if (dhikrData) {
-        const parsed = JSON.parse(dhikrData) as DhikrCount;
-        const todayStr = new Date().toISOString().split('T')[0];
-        if (parsed.date !== todayStr) {
-          const fresh = { date: todayStr, subhanallah: 0, alhamdulillah: 0, allahuakbar: 0 };
-          setDhikrCount(fresh);
-          await AsyncStorage.setItem('dhikr', JSON.stringify(fresh));
-        } else {
-          setDhikrCount(parsed);
+        try {
+          const parsed = JSON.parse(dhikrData) as DhikrCount;
+          const todayStr = new Date().toISOString().split('T')[0];
+          if (parsed.date !== todayStr) {
+            const fresh = { date: todayStr, subhanallah: 0, alhamdulillah: 0, allahuakbar: 0 };
+            setDhikrCount(fresh);
+            await AsyncStorage.setItem('dhikr', JSON.stringify(fresh));
+          } else {
+            setDhikrCount(parsed);
+          }
+        } catch (e) {
+          console.warn('Failed to parse dhikr', e);
         }
       }
+    } catch (e) {
+      console.warn('Failed to load dhikr', e);
+    }
 
-      if (bookmarksData) setBookmarks(JSON.parse(bookmarksData));
+    try {
+      const bookmarksData = await AsyncStorage.getItem('bookmarks');
+      if (bookmarksData) {
+        try {
+          setBookmarks(JSON.parse(bookmarksData));
+        } catch (e) {
+          console.warn('Failed to parse bookmarks', e);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load bookmarks', e);
+    }
+
+    try {
+      const cityData = await AsyncStorage.getItem('selectedCity');
       if (cityData) setSelectedCityState(cityData);
+    } catch (e) {
+      console.warn('Failed to load city', e);
+    }
+
+    try {
+      const onboardingData = await AsyncStorage.getItem('onboarding_done');
       if (onboardingData === 'true') setOnboardingDone(true);
-    } catch (e) {}
+    } catch (e) {
+      console.warn('Failed to load onboarding status', e);
+    }
+
+    setIsReady(true);
   };
 
   const getLevel = (completedCount: number): Progress['level'] => {
@@ -226,6 +271,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         bookmarks,
         selectedCity,
         onboardingDone,
+        isReady,
         setLanguage,
         completeDay,
         resetProgress,
