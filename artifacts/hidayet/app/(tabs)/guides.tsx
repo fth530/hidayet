@@ -199,7 +199,7 @@ export default function GuidesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: { paddingHorizontal: 20, paddingBottom: 16 },
   headerTitle: { fontSize: 28, fontWeight: '700', color: Colors.textPrimary, fontFamily: 'Inter_700Bold' },
   headerSub: { fontSize: 14, color: Colors.textSecondary, fontFamily: 'Inter_400Regular', marginTop: 4 },

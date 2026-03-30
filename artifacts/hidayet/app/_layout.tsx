@@ -17,6 +17,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import Onboarding from '@/components/Onboarding';
 import { AppProvider, useApp } from '@/context/AppContext';
 import { Colors } from '@/constants/colors';
+import { LinearGradient } from 'expo-linear-gradient';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -26,11 +27,11 @@ function RootLayoutNav() {
   const { onboardingDone } = useApp();
 
   return (
-    <>
+    <LinearGradient colors={['#0c1b2a', '#1a2d42']} style={{ flex: 1 }}>
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: Colors.background },
+          contentStyle: { backgroundColor: 'transparent' },
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -39,10 +40,11 @@ function RootLayoutNav() {
         visible={!onboardingDone}
         animationType="fade"
         statusBarTranslucent
+        transparent
       >
         <Onboarding />
       </Modal>
-    </>
+    </LinearGradient>
   );
 }
 
